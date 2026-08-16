@@ -1,0 +1,15 @@
+[Unit]
+Description=OCI FinOps Monitor (Streamlit dashboard)
+After=network.target
+
+[Service]
+# Adjust these paths/user to match your deployment
+User=finops
+WorkingDirectory=/opt/oci-finops-monitor
+ExecStart=/opt/oci-finops-monitor/venv/bin/streamlit run /opt/oci-finops-monitor/app.py --server.port 8501 --server.address 0.0.0.0 --server.headless true
+Restart=on-failure
+RestartSec=5
+Environment=HOME=/home/finops
+
+[Install]
+WantedBy=multi-user.target

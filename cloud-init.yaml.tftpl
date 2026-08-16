@@ -1,0 +1,58 @@
+#cloud-config
+package_update: true
+package_upgrade: false
+
+packages:
+  - python3
+  - python3-venv
+  - python3-pip
+
+write_files:
+  - path: /opt/oci-finops-monitor/app.py
+    encoding: b64
+    permissions: '0644'
+    content: ${app_py_b64}
+
+  - path: /opt/oci-finops-monitor/oci_finops.py
+    encoding: b64
+    permissions: '0644'
+    content: ${oci_finops_py_b64}
+
+  - path: /opt/oci-finops-monitor/requirements.txt
+    encoding: b64
+    permissions: '0644'
+    content: ${requirements_txt_b64}
+
+  - path: /etc/systemd/system/finops-monitor.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=OCI FinOps Monitor (Streamlit dashboard)
+      After=network.target
+
+      [Service]
+      User=${os_user}
+      WorkingDirectory=/opt/oci-finops-monitor
+      ExecStart=/opt/oci-finops-monitor/venv/bin/streamlit run /opt/oci-finops-monitor/app.py --server.port ${dashboard_port} --server.address 0.0.0.0 --server.headless true
+      Restart=on-failure
+      RestartSec=5
+      Environment=HOME=/home/${os_user}
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  - [ dnf, install, -y, python3.9, python3-devel ]
+  - [ systemctl, stop, firewalld ]
+  - [ systemctl, disable, firewalld ]
+  - [ python3.9, -m, venv, /opt/oci-finops-monitor/venv ]
+  - [ /opt/oci-finops-monitor/venv/bin/pip, install, --upgrade, pip ]
+  - [ /opt/oci-finops-monitor/venv/bin/pip, install, streamlit ]
+  - [ /opt/oci-finops-monitor/venv/bin/pip, install, -r, /opt/oci-finops-monitor/requirements.txt ]
+  - [ chown, -R, "${os_user}:${os_user}", /opt/oci-finops-monitor ]
+  - [ systemctl, daemon-reload ]
+  - [ systemctl, enable, --now, finops-monitor ]
+  - >
+    echo "Reminder: run 'oci setup config' as the opc user (or attach an
+    instance principal policy) so the dashboard can authenticate to the
+    Usage API." >> /etc/motd
